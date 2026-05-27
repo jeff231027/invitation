@@ -599,27 +599,73 @@
                 }, 2800);
             });
         });
+        
+const card = document.querySelector('.invitation-card');
+// 当前目标角度
+let targetX = 0;
+let targetY = 0;
 
-        // 添加鼠标跟随效果
-        document.addEventListener('mousemove', function(e) {
-            const card = document.querySelector('.invitation-card');
-            const rect = card.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+// 当前实际角度
+let currentX = 0;
+let currentY = 0;
 
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
+// ============================
+// 🖱️ PC 鼠标控制
+// ============================
+document.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth) - 0.5;
+    const y = (e.clientY / window.innerHeight) - 0.5;
 
-            const rotateX = (y - centerY) / 50;
-            const rotateY = (centerX - x) / 50;
+    targetY = x * 10;
+    targetX = -y * 10;
+});
 
-            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-        });
+// ============================
+// 📱 手机触摸控制
+// ============================
+document.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
 
-        // 恢复原状
-        document.querySelector('.invitation-card').addEventListener('mouseleave', function() {
-            this.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
-        });
+    const x = (t.clientX / window.innerWidth) - 0.5;
+    const y = (t.clientY / window.innerHeight) - 0.5;
+
+    targetY = x * 12;
+    targetX = -y * 12;
+});
+
+// ============================
+// 📱 重力感应（支持设备）
+// ============================
+if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', (e) => {
+        const gamma = e.gamma;
+        const beta = e.beta;
+
+        if (gamma !== null && beta !== null) {
+            targetY = gamma / 6;
+            targetX = (beta - 45) / 6;
+        }
+    });
+}
+
+// ============================
+// 🎬 平滑动画循环（核心）
+// ============================
+function animateCard() {
+    currentX += (targetX - currentX) * 0.08;
+    currentY += (targetY - currentY) * 0.08;
+
+    card.style.transform = `
+        perspective(1000px)
+        rotateX(${currentX}deg)
+        rotateY(${currentY}deg)
+    `;
+
+    requestAnimationFrame(animateCard);
+}
+
+animateCard();
+
 // ============================
 // 🎆 多层烟花 + 彩带混合系统
 // ============================
