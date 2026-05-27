@@ -620,9 +620,8 @@
         document.querySelector('.invitation-card').addEventListener('mouseleave', function() {
             this.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
         });
-       // ============================
-// 🎉 优化版彩带（5~6秒生命周期）
-// 爆炸 + 慢速下落版本
+// ============================
+// 🎆 多层烟花 + 彩带混合系统
 // ============================
 
 const canvas = document.getElementById("confetti");
@@ -634,57 +633,118 @@ canvas.height = window.innerHeight;
 const colors = [
     "#ff4d4d", "#4dff88", "#4da6ff",
     "#ffd24d", "#ff4df2", "#ffffff",
-    "#ff7a00", "#00e5ff"
+    "#ff7a00", "#00e5ff", "#b84dff"
 ];
 
-let pieces = [];
+let particles = [];
+let rockets = [];
 
-function createConfetti() {
-    const count = 260;
-
-    for (let i = 0; i < count; i++) {
+// ============================
+// 🎉 彩带粒子
+// ============================
+function createConfettiBurst() {
+    for (let i = 0; i < 180; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 10 + 4; // 🔥 强爆炸速度
+        const speed = Math.random() * 9 + 3;
 
-        pieces.push({
+        particles.push({
+            type: "confetti",
             x: canvas.width / 2,
             y: canvas.height / 2,
 
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 6,
+            vy: Math.sin(angle) * speed - 5,
 
             size: Math.random() * 6 + 3,
             color: colors[Math.floor(Math.random() * colors.length)],
 
             alpha: 1,
-
-            gravity: 0.08 + Math.random() * 0.05, // 🌱 更柔和下落
-            friction: 0.985, // 空气阻力（关键）
-
+            gravity: 0.08 + Math.random() * 0.04,
+            friction: 0.985,
             life: 0
         });
     }
 }
 
+// ============================
+// 🎆 烟花火箭（上升）
+// ============================
+function createRocket() {
+    rockets.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height,
+
+        vx: (Math.random() - 0.5) * 2,
+        vy: -(Math.random() * 8 + 12),
+
+        targetY: Math.random() * canvas.height * 0.4 + 50,
+
+        exploded: false,
+        color: colors[Math.floor(Math.random() * colors.length)]
+    });
+}
+
+// ============================
+// 💥 烟花爆炸
+// ============================
+function explode(x, y, baseColor) {
+    const count = 60 + Math.random() * 40;
+
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 6 + 2;
+
+        particles.push({
+            type: "firework",
+            x,
+            y,
+
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+
+            size: Math.random() * 3 + 2,
+            color: baseColor,
+
+            alpha: 1,
+            gravity: 0.06,
+            friction: 0.98,
+            life: 0
+        });
+    }
+}
+
+// ============================
+// 🎬 更新循环
+// ============================
 function update() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    pieces.forEach(p => {
-        p.life += 1;
+    // ===== 火箭 =====
+    rockets.forEach(r => {
+        if (!r.exploded) {
+            r.x += r.vx;
+            r.y += r.vy;
+            r.vy += 0.12; // 重力减速上升
 
-        // ============================
-        // 阶段控制：2.5s后进入“慢落模式”
-        // ============================
-        const slowStart = 150; // ~2.5s (60fps)
+            ctx.fillStyle = r.color;
+            ctx.globalAlpha = 1;
+            ctx.fillRect(r.x, r.y, 3, 10);
 
-        if (p.life > slowStart) {
+            if (r.y <= r.targetY) {
+                r.exploded = true;
+                explode(r.x, r.y, r.color);
+            }
+        }
+    });
+
+    // ===== 粒子 =====
+    particles.forEach(p => {
+        p.life++;
+
+        if (p.life > 120) {
             p.vx *= p.friction;
-            p.vy += p.gravity; // 重力主导
-            p.alpha *= 0.992;  // 慢慢淡出
-        } else {
-            // 爆炸阶段轻微衰减
-            p.vx *= 0.995;
-            p.vy *= 0.995;
+            p.vy += p.gravity;
+            p.alpha *= 0.985;
         }
 
         p.x += p.vx;
@@ -693,29 +753,45 @@ function update() {
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = p.color;
 
-        // 彩带形状（更像 ribbon）
-        ctx.fillRect(p.x, p.y, p.size, p.size * 0.6);
+        if (p.type === "confetti") {
+            ctx.fillRect(p.x, p.y, p.size, p.size * 0.6);
+        } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
     });
 
-    pieces = pieces.filter(p => p.alpha > 0.02);
+    // 清理
+    particles = particles.filter(p => p.alpha > 0.02);
+    rockets = rockets.filter(r => !r.exploded);
 
-    if (pieces.length > 0) {
+    if (particles.length > 0 || rockets.length > 0) {
         requestAnimationFrame(update);
     } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 }
 
+// ============================
+// 🚀 启动控制（关键节奏）
+// ============================
 window.addEventListener("load", () => {
-    createConfetti();
+    // 初始彩带爆炸
+    createConfettiBurst();
+
+    // 多层烟花（3轮）
+    setTimeout(() => createRocket(), 200);
+    setTimeout(() => createRocket(), 600);
+    setTimeout(() => createRocket(), 1000);
+
     update();
 
-    // 2.5秒后停止新增能量（进入自然衰减）
+    // 2.5秒后停止新增能量（进入衰减）
     setTimeout(() => {
-        pieces.forEach(p => {
-            p.vx *= 0.6;
-            p.vy *= 0.6;
-            p.gravity = 0.12; // 稍微增强下落
+        particles.forEach(p => {
+            p.gravity *= 1.5;
+            p.friction = 0.96;
         });
     }, 2500);
 });
