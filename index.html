@@ -620,9 +620,11 @@
         document.querySelector('.invitation-card').addEventListener('mouseleave', function() {
             this.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
         });
-        // ============================
-// 🎉 彩带喷射动画（2秒）
+       // ============================
+// 🎉 优化版彩带（5~6秒生命周期）
+// 爆炸 + 慢速下落版本
 // ============================
+
 const canvas = document.getElementById("confetti");
 const ctx = canvas.getContext("2d");
 
@@ -631,22 +633,35 @@ canvas.height = window.innerHeight;
 
 const colors = [
     "#ff4d4d", "#4dff88", "#4da6ff",
-    "#ffd24d", "#ff4df2", "#ffffff"
+    "#ffd24d", "#ff4df2", "#ffffff",
+    "#ff7a00", "#00e5ff"
 ];
 
 let pieces = [];
 
 function createConfetti() {
-    for (let i = 0; i < 200; i++) {
+    const count = 260;
+
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 10 + 4; // 🔥 强爆炸速度
+
         pieces.push({
             x: canvas.width / 2,
             y: canvas.height / 2,
-            vx: (Math.random() - 0.5) * 12,
-            vy: (Math.random() - 0.5) * 12 - 5,
+
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 6,
+
             size: Math.random() * 6 + 3,
             color: colors[Math.floor(Math.random() * colors.length)],
+
             alpha: 1,
-            gravity: 0.15
+
+            gravity: 0.08 + Math.random() * 0.05, // 🌱 更柔和下落
+            friction: 0.985, // 空气阻力（关键）
+
+            life: 0
         });
     }
 }
@@ -655,17 +670,34 @@ function update() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     pieces.forEach(p => {
+        p.life += 1;
+
+        // ============================
+        // 阶段控制：2.5s后进入“慢落模式”
+        // ============================
+        const slowStart = 150; // ~2.5s (60fps)
+
+        if (p.life > slowStart) {
+            p.vx *= p.friction;
+            p.vy += p.gravity; // 重力主导
+            p.alpha *= 0.992;  // 慢慢淡出
+        } else {
+            // 爆炸阶段轻微衰减
+            p.vx *= 0.995;
+            p.vy *= 0.995;
+        }
+
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += p.gravity;
-        p.alpha -= 0.008;
 
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, p.size, p.size);
+
+        // 彩带形状（更像 ribbon）
+        ctx.fillRect(p.x, p.y, p.size, p.size * 0.6);
     });
 
-    pieces = pieces.filter(p => p.alpha > 0);
+    pieces = pieces.filter(p => p.alpha > 0.02);
 
     if (pieces.length > 0) {
         requestAnimationFrame(update);
@@ -674,15 +706,18 @@ function update() {
     }
 }
 
-// 自动触发（页面打开）
 window.addEventListener("load", () => {
     createConfetti();
     update();
 
-    // 2秒后停止生成（但让粒子自然消失）
+    // 2.5秒后停止新增能量（进入自然衰减）
     setTimeout(() => {
-        pieces.forEach(p => p.gravity = 0.3); // 加速下落消失
-    }, 2000);
+        pieces.forEach(p => {
+            p.vx *= 0.6;
+            p.vy *= 0.6;
+            p.gravity = 0.12; // 稍微增强下落
+        });
+    }, 2500);
 });
     </script>
 </body>
