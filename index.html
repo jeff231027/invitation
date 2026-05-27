@@ -79,6 +79,8 @@
             padding: 16px;
             overflow-x: hidden;
             position: relative;
+            opacity: 1;
+            transition: opacity 0.5s ease;
         }
 
         /* 半透明遮罩 */
@@ -100,16 +102,18 @@
             z-index: 1;
             animation: float 3s ease-in-out infinite;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: transform 0.1s ease-out;
             user-select: none;
             transform-style: preserve-3d;
             touch-action: manipulation;
+            will-change: transform;
         }
 
         .academic-cap.centered {
             animation: none;
             font-size: 150px;
             z-index: 1000;
+            transition: all 0.3s ease;
         }
 
         .academic-cap.flipping {
@@ -448,8 +452,8 @@
             <div class="logo-container">
                 <img src="./HNU_logo2.png" alt="海南大学校徽">
             </div>
-            <div class="title">邀请函</div>
-            <div class="subtitle">INVITATION </div>
+            <div class="title">毕业照拍摄邀请函</div>
+            <div class="subtitle">INVITATION TO GRADUATION PHOTO</div>
         </div>
 
         <div class="content">
@@ -458,7 +462,7 @@
             <div class="physics-icon">🔬</div>
 
             <div class="greeting">
-                尊敬的学院领导/老师：<br><br>
+                尊敬的蔡庆宇院长：<br><br>
                 <span class="highlight">时光荏苒，岁月如歌</span>。海南大学2022级应用物理专业的学子们即将告别校园，踏上人生新的征程。
             </div>
 
@@ -564,44 +568,116 @@ let targetY = 0;
 let currentX = 0;
 let currentY = 0;
 
+// 增强陀螺仪交互
+let gyroEnabled = false;
+let lastGamma = 0;
+let lastBeta = 0;
+
+// 微信环境检测
+const isWeChat = /micromessenger/i.test(navigator.userAgent);
+
+// 强制刷新页面（解决微信扫码问题）
+if (isWeChat) {
+    const timestamp = new Date().getTime();
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('t')) {
+        url.searchParams.set('t', timestamp);
+        window.location.href = url.toString();
+    }
+}
+
 // 手机触摸控制
 document.addEventListener('touchmove', (e) => {
     const t = e.touches[0];
     const x = (t.clientX / window.innerWidth) - 0.5;
     const y = (t.clientY / window.innerHeight) - 0.5;
 
-    targetY = x * 8;
-    targetX = -y * 8;
-});
+    targetY = x * 12;
+    targetX = -y * 12;
+}, { passive: true });
 
-// 重力感应
+// 重力感应 - 增强版
 if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', (e) => {
-        const gamma = e.gamma;
-        const beta = e.beta;
+    // iOS 13+ 需要请求权限
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        document.addEventListener('click', () => {
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        gyroEnabled = true;
+                    }
+                })
+                .catch(console.error);
+        }, { once: true });
+    } else {
+        gyroEnabled = true;
+    }
 
-        if (gamma !== null && beta !== null) {
-            targetY = gamma / 8;
-            targetX = (beta - 45) / 8;
-        }
-    });
+    window.addEventListener('deviceorientation', (e) => {
+        if (!gyroEnabled) return;
+
+        const gamma = e.gamma || 0;  // 左右倾斜 -90 to 90
+        const beta = e.beta || 0;    // 前后倾斜 -180 to 180
+
+        // 增强灵敏度和平滑处理
+        const smoothGamma = lastGamma + (gamma - lastGamma) * 0.3;
+        const smoothBeta = lastBeta + (beta - lastBeta) * 0.3;
+
+        // 更大的倾斜角度范围
+        targetY = smoothGamma / 4;
+        targetX = (smoothBeta - 45) / 4;
+
+        // 增强学术帽的陀螺仪效果
+        document.querySelectorAll('.academic-cap:not(.centered):not(.flipping)').forEach(cap => {
+            const capIndex = Array.from(document.querySelectorAll('.academic-cap')).indexOf(cap);
+            const parallaxX = smoothGamma * (0.5 + capIndex * 0.1);
+            const parallaxY = (smoothBeta - 45) * (0.5 + capIndex * 0.1);
+            cap.style.transform = `translate(${parallaxX}px, ${parallaxY}px) rotate(${parallaxX * 0.1}deg)`;
+        });
+
+        lastGamma = smoothGamma;
+        lastBeta = smoothBeta;
+    }, { passive: true });
 }
 
-// 平滑动画循环
+// 增强的平滑动画循环
 function animateCard() {
-    currentX += (targetX - currentX) * 0.06;
-    currentY += (targetY - currentY) * 0.06;
+    currentX += (targetX - currentX) * 0.08;
+    currentY += (targetY - currentY) * 0.08;
+
+    // 添加微小的随机抖动，增加生动感
+    const jitterX = (Math.random() - 0.5) * 0.5;
+    const jitterY = (Math.random() - 0.5) * 0.5;
 
     card.style.transform = `
-        perspective(1000px)
-        rotateX(${currentX}deg)
-        rotateY(${currentY}deg)
+        perspective(1200px)
+        rotateX(${currentX + jitterX}deg)
+        rotateY(${currentY + jitterY}deg)
     `;
 
     requestAnimationFrame(animateCard);
 }
 
-animateCard();
+// 页面加载完成后的增强交互
+window.addEventListener('load', () => {
+    // 添加加载状态
+    document.body.style.opacity = '0';
+    setTimeout(() => {
+        document.body.style.transition = 'opacity 0.5s ease';
+        document.body.style.opacity = '1';
+    }, 100);
+
+    // 添加触摸反馈
+    card.addEventListener('touchstart', () => {
+        card.style.transition = 'transform 0.1s ease';
+    });
+
+    card.addEventListener('touchend', () => {
+        card.style.transition = 'transform 0.15s ease-out';
+    });
+
+    animateCard();
+});
 
 // 多层烟花 + 彩带混合系统
 const canvas = document.getElementById("confetti");
